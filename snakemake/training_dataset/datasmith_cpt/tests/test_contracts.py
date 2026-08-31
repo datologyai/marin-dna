@@ -1,17 +1,14 @@
-from pathlib import Path
-
 import pytest
+from marin_dna_datasmith_cpt.cli import DEFAULT_ASSETS
 from marin_dna_datasmith_cpt.contracts import (
     SEQUENCE_LENGTH,
     load_stream_specs,
     validate_sequence,
 )
 
-PROJECT_ROOT = Path(__file__).parents[1]
-
-
 def test_checked_in_asset_manifest_pins_five_streams() -> None:
-    specs = load_stream_specs(PROJECT_ROOT / "config" / "assets.toml")
+    assert DEFAULT_ASSETS.is_file()
+    specs = load_stream_specs(DEFAULT_ASSETS)
 
     assert tuple(specs) == ("cds", "upstream", "downstream", "enhancer", "ncrna")
     assert sum(spec.expected_rows for spec in specs.values()) == 443_039_602

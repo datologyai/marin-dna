@@ -15,7 +15,9 @@ from marin_dna_datasmith_cpt.conversion import (
 )
 from marin_dna_datasmith_cpt.model_assets import validate_model_assets
 
-DEFAULT_ASSETS = Path(__file__).parents[2] / "config" / "assets.toml"
+PACKAGED_ASSETS = Path(__file__).with_name("assets.toml")
+SOURCE_ASSETS = Path(__file__).parents[2] / "config" / "assets.toml"
+DEFAULT_ASSETS = PACKAGED_ASSETS if PACKAGED_ASSETS.is_file() else SOURCE_ASSETS
 
 
 def _parser() -> argparse.ArgumentParser:
