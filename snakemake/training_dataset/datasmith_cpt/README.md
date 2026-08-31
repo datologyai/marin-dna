@@ -11,7 +11,8 @@ Original case is preserved for the reproduction-grade weighted objective.
 
 - exactly 64 contiguous shards per stream;
 - exactly 255 bases per record;
-- alphabet restricted to `ACGTacgt`;
+- alphabet restricted to standard mixed-case IUPAC DNA symbols;
+- ambiguous bases are preserved and map to the released tokenizer's `[UNK]` token;
 - source compressed size and SHA-256 must match the pinned inventory;
 - final row count must match the checked-in stream total;
 - a report is written only after a whole shard passes validation;

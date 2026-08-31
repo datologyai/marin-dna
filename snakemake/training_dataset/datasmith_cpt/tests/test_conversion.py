@@ -40,7 +40,7 @@ def _spec(*, rows: int = 2) -> StreamSpec:
 
 
 def test_conversion_preserves_case_and_writes_a_verified_report(tmp_path: Path) -> None:
-    sequences = ["A" * 255, "a" * 100 + "C" * 155]
+    sequences = ["A" * 255, "a" * 99 + "N" + "C" * 155]
     shard = _write_shard(
         tmp_path / "shard_0000.jsonl.zst",
         [
@@ -65,20 +65,22 @@ def test_conversion_preserves_case_and_writes_a_verified_report(tmp_path: Path) 
     )
     assert report["rows"] == 2
     assert report["bases"] == 510
-    assert report["uppercase_bases"] == 410
-    assert report["lowercase_bases"] == 100
+    assert report["uppercase_bases"] == 411
+    assert report["lowercase_bases"] == 99
+    assert report["unknown_bases"] == 1
     assert report["source_sha256"] == shard.sha256
 
     manifest = finalize_reports(_spec(), report_uri=str(report_root))
     assert manifest["rows"] == 2
     assert manifest["bases"] == 510
+    assert manifest["unknown_bases"] == 1
     assert (report_root / "manifest.json").is_file()
 
 
 def test_conversion_rejects_invalid_rows_without_a_report(tmp_path: Path) -> None:
     shard = _write_shard(
         tmp_path / "shard_0000.jsonl.zst",
-        [{"id": "bad", "seq": "A" * 254 + "N"}],
+        [{"id": "bad", "seq": "A" * 254 + "X"}],
     )
     report_root = tmp_path / "reports"
 

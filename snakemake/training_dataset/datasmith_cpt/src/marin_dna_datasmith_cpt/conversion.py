@@ -18,7 +18,11 @@ import fsspec
 import orjson
 import zstandard
 
-from marin_dna_datasmith_cpt.contracts import StreamSpec, validate_sequence
+from marin_dna_datasmith_cpt.contracts import (
+    CANONICAL_BASES,
+    StreamSpec,
+    validate_sequence,
+)
 
 SHARD_RE = re.compile(r"^data/train/shard_(\d{4})\.jsonl\.zst$")
 HF_TREE_URL = "https://huggingface.co/api/datasets/{repo_id}/tree/{revision}"
@@ -49,6 +53,7 @@ class ShardReport:
     bases: int
     uppercase_bases: int
     lowercase_bases: int
+    unknown_bases: int
 
 
 class _HashingReader(io.RawIOBase):
@@ -146,6 +151,7 @@ def convert_shard(
     rows = 0
     uppercase_bases = 0
     lowercase_bases = 0
+    unknown_bases = 0
     report_name = f"{Path(shard.path).name}.report.json"
 
     with fsspec.open(shard.url, "rb") as source:
@@ -171,9 +177,9 @@ def convert_shard(
                     row.get(sequence_field),
                     source=f"{stream}/{shard.path}:{line_number}",
                 )
-                upper = sum(base in "ACGT" for base in sequence)
-                uppercase_bases += upper
-                lowercase_bases += len(sequence) - upper
+                uppercase_bases += sum(base.isupper() for base in sequence)
+                lowercase_bases += sum(base.islower() for base in sequence)
+                unknown_bases += sum(base not in CANONICAL_BASES for base in sequence)
                 rows += 1
                 yield {"text": {"content": sequence}}
 
@@ -202,6 +208,7 @@ def convert_shard(
         bases=rows * 255,
         uppercase_bases=uppercase_bases,
         lowercase_bases=lowercase_bases,
+        unknown_bases=unknown_bases,
     )
     _write_json(_join_uri(report_root, report_name), asdict(report))
 
@@ -258,12 +265,13 @@ def finalize_reports(spec: StreamSpec, *, report_uri: str) -> dict[str, object]:
     if rows != spec.expected_rows:
         raise ValueError(f"{spec.name}: expected {spec.expected_rows} rows, got {rows}")
     manifest: dict[str, object] = {
-        "format_version": 1,
+        "format_version": 2,
         "stream": asdict(spec),
         "rows": rows,
         "bases": sum(int(report["bases"]) for report in reports),
         "uppercase_bases": sum(int(report["uppercase_bases"]) for report in reports),
         "lowercase_bases": sum(int(report["lowercase_bases"]) for report in reports),
+        "unknown_bases": sum(int(report["unknown_bases"]) for report in reports),
         "source_bytes": sum(int(report["source_bytes"]) for report in reports),
         "shards": reports,
     }

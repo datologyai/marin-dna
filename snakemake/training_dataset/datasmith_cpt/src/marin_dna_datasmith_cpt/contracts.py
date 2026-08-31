@@ -9,6 +9,7 @@ from pathlib import Path
 
 REVISION_RE = re.compile(r"^[0-9a-f]{40}$")
 CANONICAL_BASES = frozenset("ACGTacgt")
+IUPAC_BASES = frozenset("ACGTRYSWKMBDHVNacgtryswkmbdhvn")
 SEQUENCE_LENGTH = 255
 
 
@@ -67,7 +68,7 @@ def validate_sequence(value: object, *, source: str) -> str:
         raise ValueError(
             f"{source}: sequence length must be {SEQUENCE_LENGTH}, got {len(value)}"
         )
-    invalid = sorted(set(value).difference(CANONICAL_BASES))
+    invalid = sorted(set(value).difference(IUPAC_BASES))
     if invalid:
         raise ValueError(f"{source}: sequence contains invalid bases: {invalid}")
     return value

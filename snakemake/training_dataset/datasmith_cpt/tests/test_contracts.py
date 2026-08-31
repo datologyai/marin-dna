@@ -6,6 +6,7 @@ from marin_dna_datasmith_cpt.contracts import (
     validate_sequence,
 )
 
+
 def test_checked_in_asset_manifest_pins_five_streams() -> None:
     assert DEFAULT_ASSETS.is_file()
     specs = load_stream_specs(DEFAULT_ASSETS)
@@ -16,7 +17,7 @@ def test_checked_in_asset_manifest_pins_five_streams() -> None:
 
 
 def test_sequence_contract_preserves_case() -> None:
-    sequence = "a" + "C" * (SEQUENCE_LENGTH - 1)
+    sequence = "aNry" + "C" * (SEQUENCE_LENGTH - 4)
 
     assert validate_sequence(sequence, source="fixture") == sequence
 
@@ -25,7 +26,7 @@ def test_sequence_contract_preserves_case() -> None:
     ("sequence", "message"),
     [
         ("A" * (SEQUENCE_LENGTH - 1), "sequence length"),
-        ("A" * (SEQUENCE_LENGTH - 1) + "N", "invalid bases"),
+        ("A" * (SEQUENCE_LENGTH - 1) + "X", "invalid bases"),
         (None, "must be a string"),
     ],
 )

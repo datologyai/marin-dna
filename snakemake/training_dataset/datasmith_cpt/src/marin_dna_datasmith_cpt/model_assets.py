@@ -111,6 +111,8 @@ def validate_model_assets(
         raise ValueError(
             "tokenizer must prepend BOS and case-normalize A/C/G/T to ids 3/4/5/6"
         )
+    if tokenizer.encode("NnRr").ids != [2, 1, 1, 1, 1]:
+        raise ValueError("tokenizer must map ambiguous DNA bases to [UNK]")
     sequence_tokens = len(tokenizer.encode("A" * 255).ids)
     if sequence_tokens != 256:
         raise ValueError(
