@@ -1,0 +1,68 @@
+[model]
+repo_id = "marin-dna/marin-dna-exp135-m5.1"
+revision = "a73a5dcfb3d64b8941e7e7596c6e88ef77db3e7a"
+model_s3_uri = "s3://datology-external-artifacts/downloaded-models/marin-dna/marin-dna-exp135-m5.1-a73a5dcfb3d6"
+tokenizer_s3_uri = "s3://datology-external-artifacts/downloaded-models/tokenizers/marin-dna/marin-dna-exp135-m5.1-a73a5dcfb3d6"
+
+[model.files]
+"config.json" = "1e5efceab894c1b165c9c247002b8288987855c38f7841aa0a6abe6f8cd6b75c"
+"model.safetensors" = "da8fcb8dc0c2eef3206c9636c608bea39c227f87ff7c690aeb749a1bba63d02e"
+"special_tokens_map.json" = "456aaeeb037d00e8502a96c0dacdc53f214f5d10c06663d8c39d082a3dfdb689"
+"tokenizer.json" = "4a10866bcbfdbd5637ebd9aed25a686186eef8717a31ec16cdc3291b8f8ae795"
+"tokenizer_config.json" = "4e814edcdb1cb8f408a2cdf951e9be4093bbcd3d12e58883f56aa06eb39fc8c7"
+
+[streams.cds]
+repo_id = "bolinas-dna/genomes-v5-genome_set-animals-intervals-v5_255_128"
+revision = "ffe3e78c99868077c65ad6568e1445d80e480794"
+sequence_field = "seq"
+expected_rows = 242334716
+expected_shards = 64
+
+[streams.upstream]
+repo_id = "bolinas-dna/genomes-v5-genome_set-animals-intervals-v1_255_128"
+revision = "d93209847b02a0c9be5c03591a0a5e56ee09c35d"
+sequence_field = "seq"
+expected_rows = 68286166
+expected_shards = 64
+
+[streams.downstream]
+repo_id = "bolinas-dna/genomes-v5-genome_set-animals-intervals-v15_255_128"
+revision = "b009afaab756937d75b8da3b1271ad8f0cec0b4d"
+sequence_field = "seq"
+expected_rows = 20501856
+expected_shards = 64
+
+[streams.enhancer]
+repo_id = "bolinas-dna/zoonomia-v1-v3_ccre_non_promoter"
+revision = "862485aa18eed53a53e693ba4c2eb45e0afc5087"
+sequence_field = "sequence"
+expected_rows = 96639800
+expected_shards = 64
+
+[streams.ncrna]
+repo_id = "bolinas-dna/zoonomia-v1-v3_ncrna_exon"
+revision = "3e48d9ae7c604b99ccfc8bd07e391b960c1ea21a"
+sequence_field = "sequence"
+expected_rows = 15277064
+expected_shards = 64
+
+[evals.mendelian]
+repo_id = "bolinas-dna/evals_mendelian_traits"
+revision = "4aed58e50c5dea0b878a665007af2ef9e5108e9f"
+split = "train"
+
+[evals.sge]
+repo_id = "bolinas-dna/evals_sge"
+revision = "225d3d1ea32a4af547891b13c33b5e92a5aae849"
+split = "train"
+
+[genome]
+release = 115
+assembly = "GRCh38"
+source_url = "https://ftp.ensembl.org/pub/release-115/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz"
+ensembl_checksum = "19039 920395"
+source_sha256 = "651561b3065aa6083b62290ec96344a90d07388883874070aa368b745fde68fd"
+mirror_uri = "s3://datology-external-artifacts/genomes/homo_sapiens/GRCh38/ensembl-release-115/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz"
+mirror_sha256 = "958a761030f94168cb85f46397dfa15435f82ae31624e39521c0a978f7b76ab7"
+fai_sha256 = "04f94041d71ce5d27e71b73ef972f07c600fd27c147504dd9a2a2ca1944095f0"
+gzi_sha256 = "283c35a3e503b067c7b64d5e73caf56116e545db27d517d8ae221e89ea7781f4"
