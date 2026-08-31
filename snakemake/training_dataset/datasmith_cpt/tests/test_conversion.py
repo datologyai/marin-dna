@@ -135,7 +135,7 @@ def test_litdata_output_matches_universe_text_contract(
         report_uri=str(tmp_path / "reports"),
         num_workers=1,
         chunk_bytes="1MB",
-        compression=None,
+        compression="zstd",
     )
 
     dataset = StreamingDataset(str(output_root), shuffle=False)
