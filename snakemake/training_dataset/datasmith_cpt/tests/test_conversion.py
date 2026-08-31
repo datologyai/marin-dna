@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import hashlib
-from functools import partial
 from pathlib import Path
 
 import orjson
 import pytest
 import zstandard
-from litdata import StreamingDataset, optimize
+from litdata import StreamingDataset
 from marin_dna_datasmith_cpt.contracts import StreamSpec
-from marin_dna_datasmith_cpt.conversion import Shard, convert_shard, finalize_reports
+from marin_dna_datasmith_cpt.conversion import (
+    Shard,
+    convert_shard,
+    convert_stream,
+    finalize_reports,
+)
 
 
 def _write_shard(path: Path, rows: list[dict[str, object]]) -> Shard:
@@ -109,7 +113,9 @@ def test_conversion_rejects_compressed_hash_mismatch(tmp_path: Path) -> None:
         )
 
 
-def test_litdata_output_matches_universe_text_contract(tmp_path: Path) -> None:
+def test_litdata_output_matches_universe_text_contract(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     sequences = ["a" * 100 + "C" * 155, "G" * 255]
     shard = _write_shard(
         tmp_path / "shard_0000.jsonl.zst",
@@ -120,21 +126,16 @@ def test_litdata_output_matches_universe_text_contract(tmp_path: Path) -> None:
     )
     output_root = tmp_path / "output.lit"
 
-    optimize(
-        partial(
-            convert_shard,
-            stream="fixture",
-            sequence_field="seq",
-            report_root=str(tmp_path / "reports"),
-        ),
-        [shard],
-        output_dir=str(output_root),
+    monkeypatch.setattr(
+        "marin_dna_datasmith_cpt.conversion.discover_shards", lambda spec: [shard]
+    )
+    convert_stream(
+        _spec(),
+        output_uri=str(output_root),
+        report_uri=str(tmp_path / "reports"),
+        num_workers=1,
         chunk_bytes="1MB",
         compression=None,
-        num_workers=1,
-        reorder_files=False,
-        mode="overwrite",
-        start_method="spawn",
     )
 
     dataset = StreamingDataset(str(output_root), shuffle=False)

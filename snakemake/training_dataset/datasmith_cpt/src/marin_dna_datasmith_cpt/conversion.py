@@ -233,7 +233,10 @@ def convert_stream(
         num_workers=num_workers,
         reorder_files=False,
         mode="overwrite",
-        use_checkpoint=True,
+        # One input shard expands to a generator of records. LitData 0.2.36
+        # cannot checkpoint generator outputs, so retries restart the stream
+        # at its immutable output prefix instead of resuming mid-shard.
+        use_checkpoint=False,
     )
 
 
