@@ -67,7 +67,14 @@ def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
     checkpoint = tmp_path / "checkpoint"
     checkpoint.mkdir()
 
-    monkeypatch.setattr(cell, "_load_dataset_frame", lambda _spec, _uri: dataset)
+    monkeypatch.setattr(
+        cell,
+        "_stage_inputs_isolated",
+        lambda _spec, _checkpoint_uri, _dataset_uri, _destination: (
+            checkpoint,
+            dataset,
+        ),
+    )
 
     def fake_scores(**kwargs: object) -> pd.DataFrame:
         assert kwargs["context_size"] == 255
@@ -164,3 +171,27 @@ def test_dataset_mirror_is_checksum_and_row_count_validated(tmp_path: Path) -> N
     bad_spec = replace(spec, sha256="0" * 64)
     with pytest.raises(ValueError, match="mirror SHA-256"):
         cell._load_dataset_frame(bad_spec, str(dataset_path))
+
+
+def test_remote_input_staging_finishes_in_an_isolated_process(tmp_path: Path) -> None:
+    checkpoint = tmp_path / "source-checkpoint"
+    checkpoint.mkdir()
+    (checkpoint / "config.json").write_text("{}\n")
+    dataset_path = tmp_path / "source.parquet"
+    dataset = _mendelian_fixture()
+    dataset.to_parquet(dataset_path, index=False)
+    spec = replace(
+        cell.DATASET_SPECS["mendelian_traits"],
+        rows=len(dataset),
+        sha256=cell._sha256_uri(str(dataset_path)),
+    )
+
+    staged_checkpoint, staged_dataset = cell._stage_inputs_isolated(
+        spec,
+        str(checkpoint),
+        str(dataset_path),
+        tmp_path / "staged",
+    )
+
+    assert staged_checkpoint == checkpoint
+    assert staged_dataset.equals(dataset)

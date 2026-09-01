@@ -5,7 +5,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import multiprocessing
 import tempfile
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Literal, cast
@@ -179,6 +181,47 @@ def _stage_checkpoint(uri: str, destination: Path) -> Path:
     return destination
 
 
+def _stage_inputs(
+    spec: DatasetSpec,
+    checkpoint_uri: str,
+    dataset_uri: str | None,
+    destination: str,
+) -> tuple[str, str]:
+    """Materialize and validate remote inputs inside one short-lived process."""
+    destination_path = Path(destination)
+    destination_path.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = _stage_checkpoint(checkpoint_uri, destination_path / "checkpoint")
+    dataset = _load_dataset_frame(spec, dataset_uri)
+    dataset_path = destination_path / "dataset.parquet"
+    dataset.to_parquet(dataset_path, index=False)
+    return str(checkpoint_path), str(dataset_path)
+
+
+def _stage_inputs_isolated(
+    spec: DatasetSpec,
+    checkpoint_uri: str,
+    dataset_uri: str | None,
+    destination: Path,
+) -> tuple[Path, pd.DataFrame]:
+    """Stage S3 inputs without leaking fsspec state into DataLoader forks.
+
+    fsspec owns an asyncio thread. If this process opens S3 before PyTorch
+    forks data-loader workers, the children inherit a stale event loop and can
+    wait forever. A spawned staging process restores the process boundary used
+    by the upstream pipeline while leaving the scoring protocol unchanged.
+    """
+    context = multiprocessing.get_context("spawn")
+    with ProcessPoolExecutor(max_workers=1, mp_context=context) as executor:
+        checkpoint_string, dataset_string = executor.submit(
+            _stage_inputs,
+            spec,
+            checkpoint_uri,
+            dataset_uri,
+            str(destination),
+        ).result()
+    return Path(checkpoint_string), pd.read_parquet(dataset_string)
+
+
 def _derived_zero_shot_scores(scores: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
     for column in ("llr_fwd", "llr_rc", "jsd_fwd", "jsd_rc"):
         if column not in scores.columns:
@@ -270,10 +313,12 @@ def run_cell(config: CellConfig, outputs: CellOutputs) -> dict[str, object]:
 
     with tempfile.TemporaryDirectory(prefix="marin-dna-eval-") as temp_dir_string:
         temp_dir = Path(temp_dir_string)
-        checkpoint_path = _stage_checkpoint(
-            config.checkpoint_uri, temp_dir / "checkpoint"
+        checkpoint_path, dataset = _stage_inputs_isolated(
+            spec,
+            config.checkpoint_uri,
+            config.dataset_uri,
+            temp_dir,
         )
-        dataset = _load_dataset_frame(spec, config.dataset_uri)
         scores = compute_variant_scores(
             checkpoint_path=checkpoint_path,
             dataset=dataset,
