@@ -1,0 +1,11 @@
+**
+!pyproject.toml
+!src/
+!src/**
+!snakemake/
+!snakemake/analysis/
+!snakemake/analysis/evals_v2/
+!snakemake/analysis/evals_v2/pyproject.toml
+!snakemake/analysis/evals_v2/uv.lock
+!snakemake/analysis/evals_v2/src/
+!snakemake/analysis/evals_v2/src/**

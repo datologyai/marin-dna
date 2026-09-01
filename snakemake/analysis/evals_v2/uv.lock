@@ -793,6 +793,7 @@ source = { editable = "." }
 dependencies = [
     { name = "datasets" },
     { name = "einops" },
+    { name = "fsspec" },
     { name = "huggingface-hub" },
     { name = "jaxtyping" },
     { name = "joblib" },
@@ -833,6 +834,7 @@ umap = [
 requires-dist = [
     { name = "datasets", specifier = ">=3.1.0,<4.0.0" },
     { name = "einops" },
+    { name = "fsspec" },
     { name = "huggingface-hub" },
     { name = "jaxtyping" },
     { name = "joblib" },

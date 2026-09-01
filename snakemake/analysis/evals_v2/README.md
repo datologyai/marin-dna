@@ -231,6 +231,17 @@ uv run --locked --group genome-s3 snakemake -n
 uv run --locked --group genome-s3 snakemake
 ```
 
+For a single released m5.1 cell under an external orchestrator, use the
+`marin-dna-eval-cell` entrypoint.
+It preserves the official scoring and metric implementations while making the score,
+zero-shot metric, optional Mendelian probe, and provenance artifacts explicit outputs.
+The released m5.1 protocol enables the probe for `mendelian_traits` only; `sge` remains
+zero-shot-only unless the upstream evaluation configuration is deliberately changed.
+Build its commit-addressed runtime from the repository root with
+`docker build -f snakemake/analysis/evals_v2/Dockerfile .`.
+The immutable DataSmith model, genome, and development-cohort mirrors are pinned in
+[`config/datasmith_assets.toml`](config/datasmith_assets.toml).
+
 The default profile (`workflow/profiles/default/config.yaml`) uses S3 storage
 at `s3://oa-bolinas/snakemake/analysis/evals_v2/`.
 
