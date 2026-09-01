@@ -6,6 +6,7 @@ from pathlib import Path
 import orjson
 import pytest
 import zstandard
+from marin_dna_datasmith_cpt import conversion
 from litdata import StreamingDataset
 from marin_dna_datasmith_cpt.contracts import StreamSpec
 from marin_dna_datasmith_cpt.conversion import (
@@ -113,6 +114,40 @@ def test_conversion_rejects_compressed_hash_mismatch(tmp_path: Path) -> None:
                 report_root=str(tmp_path / "reports"),
             )
         )
+
+
+def test_conversion_retries_before_yielding_partial_records(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shard = _write_shard(
+        tmp_path / "shard_0000.jsonl.zst",
+        [{"id": "0", "seq": "A" * 255}],
+    )
+    real_open = conversion.fsspec.open
+    source_attempts = 0
+
+    def flaky_open(path, *args, **kwargs):
+        nonlocal source_attempts
+        if str(path) == shard.url:
+            source_attempts += 1
+            if source_attempts == 1:
+                raise OSError("transient source failure")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(conversion.fsspec, "open", flaky_open)
+    monkeypatch.setattr(conversion.time, "sleep", lambda _: None)
+
+    records = list(
+        convert_shard(
+            shard,
+            stream="fixture",
+            sequence_field="seq",
+            report_root=str(tmp_path / "reports"),
+        )
+    )
+
+    assert source_attempts == 2
+    assert records == [{"text": {"content": "A" * 255}}]
 
 
 def test_litdata_output_matches_universe_text_contract(

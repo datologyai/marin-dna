@@ -6,13 +6,14 @@ import hashlib
 import io
 import json
 import re
+import tempfile
+import time
 import urllib.parse
 import urllib.request
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass
 from functools import partial
 from pathlib import Path
-from typing import BinaryIO
 
 import fsspec
 import orjson
@@ -29,6 +30,8 @@ HF_TREE_URL = "https://huggingface.co/api/datasets/{repo_id}/tree/{revision}"
 HF_RESOLVE_URL = (
     "https://huggingface.co/datasets/{repo_id}/resolve/{revision}/{path}?download=true"
 )
+DOWNLOAD_ATTEMPTS = 5
+DOWNLOAD_BLOCK_BYTES = 8 * 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -54,37 +57,6 @@ class ShardReport:
     uppercase_bases: int
     lowercase_bases: int
     unknown_bases: int
-
-
-class _HashingReader(io.RawIOBase):
-    """Update a SHA-256 digest as compressed bytes are consumed."""
-
-    def __init__(self, raw: BinaryIO) -> None:
-        self._raw = raw
-        self.digest = hashlib.sha256()
-        self.bytes_read = 0
-
-    def readable(self) -> bool:
-        return True
-
-    def read(self, size: int = -1) -> bytes:
-        data = self._raw.read(size)
-        if data:
-            self.digest.update(data)
-            self.bytes_read += len(data)
-        return data
-
-    def readinto(self, buffer: bytearray) -> int:
-        data = self.read(len(buffer))
-        size = len(data)
-        buffer[:size] = data
-        return size
-
-    def close(self) -> None:
-        try:
-            self._raw.close()
-        finally:
-            super().close()
 
 
 def discover_shards(spec: StreamSpec) -> list[Shard]:
@@ -140,6 +112,54 @@ def _write_json(uri: str, value: object) -> None:
         handle.write(b"\n")
 
 
+def _download_verified_shard(shard: Shard, destination: Path) -> tuple[str, int]:
+    """Download one whole shard before yielding records, with bounded retries."""
+    last_error: Exception | None = None
+    for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
+        digest = hashlib.sha256()
+        source_bytes = 0
+        try:
+            # A streaming HTTP file uses one request instead of many range reads.
+            with (
+                fsspec.open(shard.url, "rb", block_size=0) as source,
+                destination.open("wb") as local,
+            ):
+                while block := source.read(DOWNLOAD_BLOCK_BYTES):
+                    local.write(block)
+                    digest.update(block)
+                    source_bytes += len(block)
+        except Exception as error:
+            last_error = error
+            destination.unlink(missing_ok=True)
+            if attempt == DOWNLOAD_ATTEMPTS:
+                break
+            jitter = int(shard.sha256[:2], 16) % 5
+            delay = min(60, 5 * (2 ** (attempt - 1))) + jitter
+            print(
+                f"{shard.path}: download attempt {attempt}/{DOWNLOAD_ATTEMPTS} "
+                f"failed ({error}); retrying in {delay}s",
+                flush=True,
+            )
+            time.sleep(delay)
+            continue
+
+        observed_sha256 = digest.hexdigest()
+        if observed_sha256 != shard.sha256:
+            raise ValueError(
+                f"compressed SHA-256 mismatch: expected {shard.sha256}, "
+                f"got {observed_sha256}"
+            )
+        if source_bytes != shard.size:
+            raise ValueError(
+                f"compressed size mismatch: expected {shard.size}, got {source_bytes}"
+            )
+        return observed_sha256, source_bytes
+
+    raise RuntimeError(
+        f"{shard.path}: download failed after {DOWNLOAD_ATTEMPTS} attempts"
+    ) from last_error
+
+
 def convert_shard(
     shard: Shard,
     *,
@@ -154,12 +174,12 @@ def convert_shard(
     unknown_bases = 0
     report_name = f"{Path(shard.path).name}.report.json"
 
-    with fsspec.open(shard.url, "rb") as source:
-        hashing_source = _HashingReader(source)
+    with tempfile.TemporaryDirectory(prefix="marin-dna-shard-") as temp_dir:
+        local_path = Path(temp_dir) / Path(shard.path).name
+        observed_sha256, source_bytes = _download_verified_shard(shard, local_path)
         with (
-            zstandard.ZstdDecompressor().stream_reader(
-                hashing_source, closefd=False
-            ) as decompressed,
+            local_path.open("rb") as source,
+            zstandard.ZstdDecompressor().stream_reader(source) as decompressed,
             io.TextIOWrapper(decompressed, encoding="utf-8") as text,
         ):
             for line_number, line in enumerate(text, start=1):
@@ -182,22 +202,6 @@ def convert_shard(
                 unknown_bases += sum(base not in CANONICAL_BASES for base in sequence)
                 rows += 1
                 yield {"text": {"content": sequence}}
-
-        while hashing_source.read(1024 * 1024):
-            pass
-        observed_sha256 = hashing_source.digest.hexdigest()
-        source_bytes = hashing_source.bytes_read
-
-    if observed_sha256 != shard.sha256:
-        raise ValueError(
-            f"{stream}/{shard.path}: compressed SHA-256 mismatch: "
-            f"expected {shard.sha256}, got {observed_sha256}"
-        )
-    if source_bytes != shard.size:
-        raise ValueError(
-            f"{stream}/{shard.path}: compressed size mismatch: "
-            f"expected {shard.size}, got {source_bytes}"
-        )
 
     report = ShardReport(
         stream=stream,
