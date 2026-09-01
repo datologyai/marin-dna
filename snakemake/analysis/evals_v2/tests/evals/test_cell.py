@@ -68,11 +68,16 @@ def test_sge_probe_uses_the_official_per_study_metrics(
     )
     predictions = score_bundle.drop(columns=["emb_ref", "emb_alt"]).copy()
     predictions["probe_score"] = [0.9, 0.1]
-    monkeypatch.setattr(
-        cell,
-        "run_subset_probes",
-        lambda *_args, **_kwargs: (predictions, {"missense_variant": {"C": 1.0}}),
-    )
+
+    def fake_fixed_probe(
+        frame: pd.DataFrame, **kwargs: object
+    ) -> tuple[pd.DataFrame, dict[str, object]]:
+        assert frame.equals(score_bundle)
+        assert kwargs["fixed_c"] == pytest.approx(1e-3)
+        assert kwargs["n_jobs"] == 4
+        return predictions, {"missense_variant": {"C": 1.0}}
+
+    monkeypatch.setattr(cell, "run_subset_probes_fixed_c", fake_fixed_probe)
 
     def fake_sge_probe_metrics(
         frame: pd.DataFrame,
@@ -148,7 +153,7 @@ def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
         predictions["probe_score"] = np.where(predictions["label"], 0.9, 0.1)
         return predictions, {"missense_variant": {"C": 1.0}}
 
-    monkeypatch.setattr(cell, "run_subset_probes", fake_probe)
+    monkeypatch.setattr(cell, "run_subset_probes_fixed_c", fake_probe)
 
     outputs = cell.CellOutputs(
         scores=str(tmp_path / "scores.parquet"),
@@ -184,6 +189,7 @@ def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
     assert stored_provenance["dataset"]["revision"] == (
         "4aed58e50c5dea0b878a665007af2ef9e5108e9f"
     )
+    assert stored_provenance["config"]["probe_fixed_c"] == pytest.approx(1e-3)
     assert set(stored_provenance["artifacts"]) == {
         "scores",
         "zero_shot_metrics",

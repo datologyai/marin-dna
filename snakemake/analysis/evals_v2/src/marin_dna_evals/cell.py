@@ -1,4 +1,4 @@
-"""Run one released MarinDNA evaluation cell with the pinned official protocol."""
+"""Run pinned MarinDNA scoring with the DataSmith fixed-C linear probe."""
 
 from __future__ import annotations
 
@@ -29,7 +29,10 @@ from marin_dna_evals.metrics import (
     compute_sge_probe_metrics,
     per_chrom_ap_table,
 )
-from marin_dna_evals.variant_probe import run_subset_probes
+from marin_dna_evals.variant_probe import (
+    DEFAULT_FIXED_PROBE_C,
+    run_subset_probes_fixed_c,
+)
 
 DatasetName = Literal["mendelian_traits", "sge"]
 EvalProtocol = Literal["matched_pair", "sge"]
@@ -95,9 +98,9 @@ class CellConfig:
     run_probe: bool = False
     probe_min_variants: int = 300
     probe_min_chroms: int = 3
-    probe_inner_splits: int = 5
     probe_n_min: int = 30
     probe_n_jobs: int = 4
+    probe_fixed_c: float = DEFAULT_FIXED_PROBE_C
 
     def __post_init__(self) -> None:
         spec = DATASET_SPECS[self.dataset]
@@ -113,6 +116,10 @@ class CellConfig:
             raise ValueError("eval_accumulation_steps must be positive")
         if self.n_bootstrap < 0:
             raise ValueError("n_bootstrap must be non-negative")
+        if self.probe_n_jobs == 0:
+            raise ValueError("probe_n_jobs must not be zero")
+        if not np.isfinite(self.probe_fixed_c) or self.probe_fixed_c <= 0:
+            raise ValueError("probe_fixed_c must be finite and positive")
 
 
 @dataclass(frozen=True)
@@ -271,13 +278,12 @@ def _run_probe(
     score_bundle: pd.DataFrame,
     config: CellConfig,
 ) -> tuple[pd.DataFrame, dict, pd.DataFrame]:
-    predictions, classifiers = run_subset_probes(
+    predictions, classifiers = run_subset_probes_fixed_c(
         score_bundle,
         feature_combo="concat_ref_delta",
-        c_grid=np.logspace(-12, 4, 17),
+        fixed_c=config.probe_fixed_c,
         min_variants=config.probe_min_variants,
         min_chroms=config.probe_min_chroms,
-        inner_splits=config.probe_inner_splits,
         n_jobs=config.probe_n_jobs,
     )
     if DATASET_SPECS[config.dataset].protocol == "sge":
@@ -318,7 +324,7 @@ def _publish(local_path: Path, uri: str) -> None:
 
 
 def run_cell(config: CellConfig, outputs: CellOutputs) -> dict[str, object]:
-    """Run scoring, metrics, and the optional published Mendelian probe."""
+    """Run scoring, metrics, and the optional fixed-C probe."""
     spec = DATASET_SPECS[config.dataset]
     if config.run_probe and outputs.probe_predictions is None:
         raise ValueError("run_probe=True requires all probe output paths")
@@ -454,6 +460,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--probe-n-jobs", type=int, default=4)
+    parser.add_argument("--probe-fixed-c", type=float, default=DEFAULT_FIXED_PROBE_C)
     parser.add_argument("--n-bootstrap", type=int, default=1000)
     return parser
 
@@ -470,6 +477,7 @@ def main() -> None:
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         probe_n_jobs=args.probe_n_jobs,
+        probe_fixed_c=args.probe_fixed_c,
         n_bootstrap=args.n_bootstrap,
         run_probe=args.run_probe,
     )

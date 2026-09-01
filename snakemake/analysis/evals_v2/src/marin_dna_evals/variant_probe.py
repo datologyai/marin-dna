@@ -23,6 +23,10 @@ no sweeps:
   ``GroupKFold`` ``GridSearchCV`` re-tuning ``C`` per fold (leakage-free, the
   TraitGym protocol). ``fit_full_classifier`` fits the reusable all-data probe
   with the same inner C-search.
+- **Fast fixed-C CV.** ``run_subset_probes_fixed_c`` keeps the outer
+  leave-one-chromosome-out split but fixes ``C=1e-3`` and parallelizes its
+  independent fits. The fixed value assumes the standardized MarinDNA feature
+  construction and evaluation cohorts remain unchanged.
 - **C-edge diagnostic (verified).** ``summarize_selected_c`` records when the chosen
   ``C`` lands on a grid boundary and, given the all-data inner-CV curve, *verifies*
   the pin is saturated/flat (the interior neighbor gives the same AUPRC) rather than
@@ -37,12 +41,16 @@ no sweeps:
 ``abs_delta`` are the documented bare-effect fallbacks.
 """
 
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, GroupKFold, LeaveOneGroupOut
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from threadpoolctl import threadpool_limits
 
 # ref↔alt combinations of the pooled allele embeddings. The symmetric ones are
 # invariant under swapping which allele is "ref" — the only valid features for
@@ -70,7 +78,19 @@ SYMMETRIC_COMBOS: frozenset[str] = frozenset({"abs_delta", "prod", "sum_absdiff"
 #                needed; a high-edge pin means "wants minimal reg (saturated)".
 # Both edge-pins are recorded per subset by ``summarize_selected_c`` as diagnostics.
 DEFAULT_C_GRID: np.ndarray = np.logspace(-12, 4, 17)
+DEFAULT_FIXED_PROBE_C: float = 1e-3
 _MAX_ITER: int = 2000
+
+
+@dataclass(frozen=True)
+class _FixedProbeFit:
+    subset: str
+    held_out_group: str | None
+    test_indices: np.ndarray
+    scores: np.ndarray | None
+    pipeline: Pipeline | None
+    n_iter: int | None
+    error: str | None = None
 
 
 def pair_feature(ref: np.ndarray, alt: np.ndarray, combo: str) -> np.ndarray:
@@ -303,6 +323,190 @@ def summarize_selected_c(
         low_risky = low_pinned and (np.isnan(low_gain) or low_gain > tol)
         out["truncation_risk"] = bool(high_risky or low_risky)
     return out
+
+
+def _fit_fixed_probe_task(
+    subset: str,
+    features: np.ndarray,
+    label: np.ndarray,
+    groups: np.ndarray,
+    held_out_group: str | None,
+    fixed_c: float,
+) -> _FixedProbeFit:
+    """Fit one independent fixed-C chromosome fold or reusable full probe."""
+    try:
+        if held_out_group is None:
+            train = np.ones(len(label), dtype=bool)
+            test_indices = np.array([], dtype=np.int64)
+        else:
+            train = groups != held_out_group
+            test_indices = np.flatnonzero(~train)
+        if len(np.unique(label[train])) != 2:
+            raise ValueError("training fold is single-class")
+
+        pipeline = _probe_pipeline()
+        pipeline.set_params(clf__C=fixed_c)
+        pipeline.fit(features[train], label[train])
+        n_iter = int(pipeline.named_steps["clf"].n_iter_[0])
+        if held_out_group is None:
+            return _FixedProbeFit(
+                subset=subset,
+                held_out_group=None,
+                test_indices=test_indices,
+                scores=None,
+                pipeline=pipeline,
+                n_iter=n_iter,
+            )
+        scores = pipeline.predict_proba(features[test_indices])[:, 1]
+        return _FixedProbeFit(
+            subset=subset,
+            held_out_group=held_out_group,
+            test_indices=test_indices,
+            scores=scores,
+            pipeline=None,
+            n_iter=n_iter,
+        )
+    except Exception as error:  # noqa: BLE001 - report one fold without aborting siblings
+        return _FixedProbeFit(
+            subset=subset,
+            held_out_group=held_out_group,
+            test_indices=np.array([], dtype=np.int64),
+            scores=None,
+            pipeline=None,
+            n_iter=None,
+            error=f"{type(error).__name__}: {error}",
+        )
+
+
+def run_subset_probes_fixed_c(
+    df: pd.DataFrame,
+    *,
+    feature_combo: str,
+    fixed_c: float = DEFAULT_FIXED_PROBE_C,
+    min_variants: int = 300,
+    min_chroms: int = 3,
+    n_jobs: int = -1,
+) -> tuple[pd.DataFrame, dict]:
+    """Run parallel fixed-C leave-one-chromosome-out probes by subset.
+
+    ``C=1e-3`` assumes the standardized MarinDNA pair-feature construction and
+    evaluation cohorts remain fixed. Retune it if the representation changes.
+    Every prediction still comes from a classifier that excluded its chromosome.
+    """
+    if not np.isfinite(fixed_c) or fixed_c <= 0:
+        raise ValueError(f"fixed_c must be finite and positive, got {fixed_c}")
+    if n_jobs == 0:
+        raise ValueError("n_jobs must not be zero")
+    assert "chrom" in df.columns and "label" in df.columns, (
+        "frame needs `chrom` and `label` columns"
+    )
+
+    feat = pair_feature_from_bundle(df, feature_combo)
+    n_rows = len(df)
+    assert feat.shape[0] == n_rows, (feat.shape, n_rows)
+    chrom = df["chrom"].astype(str).to_numpy()
+    label = df["label"].to_numpy().astype(int)
+    subset = (
+        df["subset"].astype(str).to_numpy()
+        if "subset" in df.columns
+        else np.full(n_rows, "all")
+    )
+
+    subset_data: dict[str, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+    tasks: list[tuple[str, str | None]] = []
+    for subset_name in sorted(set(subset)):
+        row_indices = np.flatnonzero(subset == subset_name)
+        subset_chrom = chrom[row_indices]
+        subset_label = label[row_indices]
+        n = len(row_indices)
+        n_chrom = len(set(subset_chrom))
+        n_pos = int(subset_label.sum())
+        if n < min_variants or n_chrom < min_chroms:
+            print(
+                f"[probe] skip {subset_name!r}: n={n} (min {min_variants}), "
+                f"n_chrom={n_chrom} (min {min_chroms})"
+            )
+            continue
+        if not 0 < n_pos < n:
+            print(f"[probe] skip {subset_name!r}: single-class (n_pos={n_pos}/{n})")
+            continue
+        subset_data[subset_name] = (
+            row_indices,
+            feat[row_indices],
+            subset_label,
+            subset_chrom,
+        )
+        tasks.extend((subset_name, group) for group in sorted(set(subset_chrom)))
+        tasks.append((subset_name, None))
+
+    assert tasks, (
+        f"no subset met the threshold (min_variants={min_variants}, "
+        f"min_chroms={min_chroms}) — check the dataset / lower the threshold"
+    )
+    worker_count = None if n_jobs < 0 else n_jobs
+    with threadpool_limits(limits=1):
+        with ThreadPoolExecutor(max_workers=worker_count) as executor:
+            futures = [
+                executor.submit(
+                    _fit_fixed_probe_task,
+                    subset_name,
+                    subset_data[subset_name][1],
+                    subset_data[subset_name][2],
+                    subset_data[subset_name][3],
+                    held_out_group,
+                    fixed_c,
+                )
+                for subset_name, held_out_group in tasks
+            ]
+            results = [future.result() for future in futures]
+
+    oof = np.full(n_rows, np.nan, dtype=float)
+    classifiers: dict = {}
+    for subset_name, (
+        row_indices,
+        _,
+        subset_label,
+        subset_chrom,
+    ) in subset_data.items():
+        subset_results = [result for result in results if result.subset == subset_name]
+        errors = [result.error for result in subset_results if result.error is not None]
+        if errors:
+            print(f"[probe] SKIP {subset_name!r}: {errors[0]}")
+            continue
+        full_fit = next(
+            result for result in subset_results if result.held_out_group is None
+        )
+        assert full_fit.pipeline is not None
+        for result in subset_results:
+            if result.held_out_group is None:
+                continue
+            assert result.scores is not None
+            oof[row_indices[result.test_indices]] = result.scores
+
+        iteration_counts = [
+            result.n_iter for result in subset_results if result.n_iter is not None
+        ]
+        classifiers[subset_name] = {
+            "pipeline": full_fit.pipeline,
+            "C": fixed_c,
+            "feature": feature_combo,
+            "n": len(row_indices),
+            "n_pos": int(subset_label.sum()),
+            "protocol": "fixed_c_logo",
+            "n_outer_folds": len(set(subset_chrom)),
+            "max_n_iter": max(iteration_counts),
+        }
+        print(
+            f"[probe] {subset_name}: n={len(row_indices)} "
+            f"n_pos={int(subset_label.sum())} C={fixed_c:.1e} "
+            f"folds={len(set(subset_chrom))} max_iter={max(iteration_counts)}"
+        )
+
+    assert classifiers, "all qualifying fixed-C probe subsets failed"
+    keep = [column for column in df.columns if column not in ("emb_ref", "emb_alt")]
+    predictions = df[keep].copy()
+    predictions["probe_score"] = oof
+    return predictions, classifiers
 
 
 def run_subset_probes(
