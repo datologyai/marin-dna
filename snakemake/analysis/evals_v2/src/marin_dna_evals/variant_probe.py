@@ -444,21 +444,23 @@ def run_subset_probes_fixed_c(
         f"min_chroms={min_chroms}) — check the dataset / lower the threshold"
     )
     worker_count = None if n_jobs < 0 else n_jobs
-    with threadpool_limits(limits=1):
-        with ThreadPoolExecutor(max_workers=worker_count) as executor:
-            futures = [
-                executor.submit(
-                    _fit_fixed_probe_task,
-                    subset_name,
-                    subset_data[subset_name][1],
-                    subset_data[subset_name][2],
-                    subset_data[subset_name][3],
-                    held_out_group,
-                    fixed_c,
-                )
-                for subset_name, held_out_group in tasks
-            ]
-            results = [future.result() for future in futures]
+    with (
+        threadpool_limits(limits=1),
+        ThreadPoolExecutor(max_workers=worker_count) as executor,
+    ):
+        futures = [
+            executor.submit(
+                _fit_fixed_probe_task,
+                subset_name,
+                subset_data[subset_name][1],
+                subset_data[subset_name][2],
+                subset_data[subset_name][3],
+                held_out_group,
+                fixed_c,
+            )
+            for subset_name, held_out_group in tasks
+        ]
+        results = [future.result() for future in futures]
 
     oof = np.full(n_rows, np.nan, dtype=float)
     classifiers: dict = {}
