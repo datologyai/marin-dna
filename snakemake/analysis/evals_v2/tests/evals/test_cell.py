@@ -47,17 +47,59 @@ def test_dataset_specs_match_the_released_m51_config() -> None:
         "225d3d1ea32a4af547891b13c33b5e92a5aae849"
     )
     assert cell.DATASET_SPECS["mendelian_traits"].supports_probe
-    assert not cell.DATASET_SPECS["sge"].supports_probe
+    assert cell.DATASET_SPECS["sge"].supports_probe
 
 
-def test_sge_probe_is_not_silently_added_to_the_released_protocol() -> None:
-    with pytest.raises(ValueError, match="not part of the released m5.1 protocol"):
-        cell.CellConfig(
-            dataset="sge",
-            checkpoint_uri="checkpoint",
-            genome_uri="genome",
-            run_probe=True,
-        )
+def test_sge_probe_uses_the_official_per_study_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    score_bundle = pd.DataFrame(
+        {
+            "chrom": ["1", "3"],
+            "label": [True, False],
+            "subset": ["missense_variant", "missense_variant"],
+            "mavedb_urn": ["urn:1", "urn:1"],
+            "gene": ["GENE1", "GENE1"],
+            "llr_fwd": [-1.0, 0.0],
+            "llr_rc": [-1.0, 0.0],
+            "emb_ref": [np.array([1.0]), np.array([1.0])],
+            "emb_alt": [np.array([2.0]), np.array([1.0])],
+        }
+    )
+    predictions = score_bundle.drop(columns=["emb_ref", "emb_alt"]).copy()
+    predictions["probe_score"] = [0.9, 0.1]
+    monkeypatch.setattr(
+        cell,
+        "run_subset_probes",
+        lambda *_args, **_kwargs: (predictions, {"missense_variant": {"C": 1.0}}),
+    )
+
+    def fake_sge_probe_metrics(
+        frame: pd.DataFrame,
+        score_protocol: str,
+        n_bootstrap: int,
+        rng: int,
+    ) -> pd.DataFrame:
+        assert frame.equals(predictions)
+        assert score_protocol == "minus_llr"
+        assert n_bootstrap == 7
+        assert rng == 0
+        return pd.DataFrame({"score_type": ["probe_score"]})
+
+    monkeypatch.setattr(cell, "compute_sge_probe_metrics", fake_sge_probe_metrics)
+    config = cell.CellConfig(
+        dataset="sge",
+        checkpoint_uri="checkpoint",
+        genome_uri="genome",
+        run_probe=True,
+        n_bootstrap=7,
+    )
+
+    actual_predictions, classifiers, metrics = cell._run_probe(score_bundle, config)
+
+    assert actual_predictions.equals(predictions)
+    assert classifiers == {"missense_variant": {"C": 1.0}}
+    assert metrics["score_type"].tolist() == ["probe_score"]
 
 
 def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(

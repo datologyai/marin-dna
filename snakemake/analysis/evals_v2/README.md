@@ -234,9 +234,10 @@ uv run --locked --group genome-s3 snakemake
 For a single released m5.1 cell under an external orchestrator, use the
 `marin-dna-eval-cell` entrypoint.
 It preserves the official scoring and metric implementations while making the score,
-zero-shot metric, optional Mendelian probe, and provenance artifacts explicit outputs.
-The released m5.1 protocol enables the probe for `mendelian_traits` only; `sge` remains
-zero-shot-only unless the upstream evaluation configuration is deliberately changed.
+zero-shot metric, linear-probe, and provenance artifacts explicit outputs.
+The released m5.1 protocol enables the probe for both `mendelian_traits` and `sge`.
+Mendelian probe scores use chromosome-weighted AUPRC; SGE probe scores use the
+official per-study and consequence-group AUPRC aggregation.
 Build its commit-addressed runtime from the repository root with
 `docker build -f snakemake/analysis/evals_v2/Dockerfile .`.
 The immutable DataSmith model, genome, and development-cohort mirrors are pinned in

@@ -24,7 +24,11 @@ from marin_dna_evals.conservation import (
 )
 from marin_dna_evals.grouped_vep_metrics import compute_grouped_vep_metrics
 from marin_dna_evals.inference import compute_variant_scores
-from marin_dna_evals.metrics import compute_sge_metrics, per_chrom_ap_table
+from marin_dna_evals.metrics import (
+    compute_sge_metrics,
+    compute_sge_probe_metrics,
+    per_chrom_ap_table,
+)
 from marin_dna_evals.variant_probe import run_subset_probes
 
 DatasetName = Literal["mendelian_traits", "sge"]
@@ -65,7 +69,7 @@ DATASET_SPECS: dict[DatasetName, DatasetSpec] = {
         split="train",
         protocol="sge",
         required_columns=SGE_VARIANT_COLUMNS,
-        supports_probe=False,
+        supports_probe=True,
         rows=23_853,
         sha256="781a22c4d8a1eddc93ff95d1d45f8b5aa56adf38e9e96ff4cc944968de5d0450",
     ),
@@ -276,14 +280,24 @@ def _run_probe(
         inner_splits=config.probe_inner_splits,
         n_jobs=config.probe_n_jobs,
     )
-    predictions["minus_llr_avg"] = -(predictions["llr_fwd"] + predictions["llr_rc"]) / 2
-    metrics = per_chrom_ap_table(
-        predictions,
-        ["probe_score", "minus_llr_avg"],
-        n_bootstrap=config.n_bootstrap,
-        rng=config.bootstrap_seed,
-        n_min=config.probe_n_min,
-    )
+    if DATASET_SPECS[config.dataset].protocol == "sge":
+        metrics = compute_sge_probe_metrics(
+            predictions,
+            "minus_llr",
+            n_bootstrap=config.n_bootstrap,
+            rng=config.bootstrap_seed,
+        )
+    else:
+        predictions["minus_llr_avg"] = (
+            -(predictions["llr_fwd"] + predictions["llr_rc"]) / 2
+        )
+        metrics = per_chrom_ap_table(
+            predictions,
+            ["probe_score", "minus_llr_avg"],
+            n_bootstrap=config.n_bootstrap,
+            rng=config.bootstrap_seed,
+            n_min=config.probe_n_min,
+        )
     return predictions, classifiers, metrics
 
 
