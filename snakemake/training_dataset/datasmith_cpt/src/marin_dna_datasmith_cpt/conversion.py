@@ -128,7 +128,9 @@ def _download_verified_shard(shard: Shard, destination: Path) -> tuple[str, int]
                     local.write(block)
                     digest.update(block)
                     source_bytes += len(block)
-        except Exception as error:
+        # fsspec backends surface transport failures through several unrelated
+        # exception types; this is the single bounded retry boundary.
+        except Exception as error:  # noqa: BLE001
             last_error = error
             destination.unlink(missing_ok=True)
             if attempt == DOWNLOAD_ATTEMPTS:

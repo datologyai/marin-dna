@@ -6,8 +6,8 @@ from pathlib import Path
 import orjson
 import pytest
 import zstandard
-from marin_dna_datasmith_cpt import conversion
 from litdata import StreamingDataset
+from marin_dna_datasmith_cpt import conversion
 from marin_dna_datasmith_cpt.contracts import StreamSpec
 from marin_dna_datasmith_cpt.conversion import (
     Shard,
