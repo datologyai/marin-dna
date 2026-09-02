@@ -1,6 +1,6 @@
 # DataSmith CPT onboarding
 
-This project converts the five immutable public MarinDNA m5.1 training streams into the raw-string LitData format consumed by the Universe TorchTitan/Zephon training path.
+This project converts the five immutable public MarinDNA m5.1 training streams, plus the five pinned `marin-dna/vertebrate-v1-*` continuation streams, into the raw-string LitData format consumed by the Universe TorchTitan/Zephon training path.
 It is an onboarding adapter, not a replacement for the original training-dataset generation workflows.
 
 The checked-in [`config/assets.toml`](config/assets.toml) pins every public repository revision and expected row count.
