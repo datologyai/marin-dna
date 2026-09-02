@@ -107,8 +107,11 @@ def test_sge_probe_uses_the_official_per_study_metrics(
     assert metrics["score_type"].tolist() == ["probe_score"]
 
 
+@pytest.mark.parametrize("retain_embeddings", [False, True])
 def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    retain_embeddings: bool,
 ) -> None:
     dataset = _mendelian_fixture()
     checkpoint = tmp_path / "checkpoint"
@@ -173,6 +176,7 @@ def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
         probe_min_variants=1,
         probe_min_chroms=3,
         probe_n_min=1,
+        retain_embeddings=retain_embeddings,
     )
 
     provenance = cell.run_cell(config, outputs)
@@ -182,7 +186,14 @@ def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
     probe_metrics = pd.read_parquet(outputs.probe_metrics)
     stored_provenance = json.loads(Path(outputs.provenance).read_text())
     assert len(scores) == len(dataset)
-    assert {"emb_ref", "emb_alt", "llr_fwd", "llr_rc"} <= set(scores.columns)
+    assert {"llr_fwd", "llr_rc"} <= set(scores.columns)
+    embedding_columns = {"emb_ref", "emb_alt"}
+    if retain_embeddings:
+        assert embedding_columns <= set(scores.columns)
+        assert embedding_columns <= set(stored_provenance["score_columns"])
+    else:
+        assert embedding_columns.isdisjoint(scores.columns)
+        assert embedding_columns.isdisjoint(stored_provenance["score_columns"])
     assert {"minus_llr_avg", "jsd_avg"} <= set(zero_shot["score_type"])
     assert set(probe_metrics["score_type"]) == {"probe_score", "minus_llr_avg"}
     assert provenance["rows"] == len(dataset)
@@ -190,6 +201,7 @@ def test_cell_emits_separate_zero_shot_probe_and_provenance_outputs(
         "4aed58e50c5dea0b878a665007af2ef9e5108e9f"
     )
     assert stored_provenance["config"]["probe_fixed_c"] == pytest.approx(1e-3)
+    assert stored_provenance["config"]["retain_embeddings"] is retain_embeddings
     assert set(stored_provenance["artifacts"]) == {
         "scores",
         "zero_shot_metrics",

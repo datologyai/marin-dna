@@ -236,6 +236,8 @@ For a single released m5.1 cell under an external orchestrator, use the
 It preserves the official scoring and metric implementations while making the score, zero-shot metric, linear-probe, and provenance artifacts explicit outputs.
 The DataSmith probe fixes `C=1e-3` after feature standardization and parallelizes the independent leave-one-chromosome-out fits.
 This fixed value assumes the MarinDNA pair-feature construction and evaluation cohorts remain unchanged.
+Pooled allele embeddings remain in memory only until probe fitting finishes; archived score bundles omit them by default while retaining per-variant LLR and JSD scores.
+Pass `--retain-embeddings` only for a debugging or golden-reference run that needs later probe refitting.
 The released m5.1 protocol enables the probe for both `mendelian_traits` and `sge`.
 Mendelian probe scores use chromosome-weighted AUPRC; SGE probe scores use the
 official per-study and consequence-group AUPRC aggregation.

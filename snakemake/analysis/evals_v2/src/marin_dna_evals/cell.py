@@ -78,6 +78,8 @@ DATASET_SPECS: dict[DatasetName, DatasetSpec] = {
     ),
 }
 
+EMBEDDING_COLUMNS: tuple[str, str] = ("emb_ref", "emb_alt")
+
 
 @dataclass(frozen=True)
 class CellConfig:
@@ -96,6 +98,7 @@ class CellConfig:
     n_bootstrap: int = 1000
     bootstrap_seed: int = 0
     run_probe: bool = False
+    retain_embeddings: bool = False
     probe_min_variants: int = 300
     probe_min_chroms: int = 3
     probe_n_min: int = 30
@@ -350,7 +353,7 @@ def run_cell(config: CellConfig, outputs: CellOutputs) -> dict[str, object]:
             torch_compile=True,
             bf16=True,
             rc=True,
-            return_embeddings=True,
+            return_embeddings=config.run_probe or config.retain_embeddings,
             eval_accumulation_steps=config.eval_accumulation_steps,
         )
         if len(scores) != len(dataset):
@@ -371,20 +374,8 @@ def run_cell(config: CellConfig, outputs: CellOutputs) -> dict[str, object]:
             frame["dataset"] = spec.name
             frame["split"] = spec.split
 
-        local_scores = temp_dir / "scores.parquet"
-        local_zero_shot = temp_dir / "zero_shot_metrics.parquet"
-        score_bundle.to_parquet(local_scores, index=False)
-        zero_shot_metrics.to_parquet(local_zero_shot, index=False)
-
-        local_artifacts: dict[str, Path] = {
-            "scores": local_scores,
-            "zero_shot_metrics": local_zero_shot,
-        }
-        output_uris: dict[str, str] = {
-            "scores": outputs.scores,
-            "zero_shot_metrics": outputs.zero_shot_metrics,
-        }
-
+        local_artifacts: dict[str, Path] = {}
+        output_uris: dict[str, str] = {}
         if config.run_probe:
             assert outputs.probe_predictions is not None
             assert outputs.probe_metrics is not None
@@ -414,6 +405,28 @@ def run_cell(config: CellConfig, outputs: CellOutputs) -> dict[str, object]:
                 }
             )
 
+        archived_scores = (
+            score_bundle
+            if config.retain_embeddings
+            else score_bundle.drop(columns=list(EMBEDDING_COLUMNS), errors="ignore")
+        )
+        local_scores = temp_dir / "scores.parquet"
+        local_zero_shot = temp_dir / "zero_shot_metrics.parquet"
+        archived_scores.to_parquet(local_scores, index=False)
+        zero_shot_metrics.to_parquet(local_zero_shot, index=False)
+        local_artifacts.update(
+            {
+                "scores": local_scores,
+                "zero_shot_metrics": local_zero_shot,
+            }
+        )
+        output_uris.update(
+            {
+                "scores": outputs.scores,
+                "zero_shot_metrics": outputs.zero_shot_metrics,
+            }
+        )
+
         provenance: dict[str, object] = {
             "format_version": 1,
             "model_id": config.model_id,
@@ -423,7 +436,7 @@ def run_cell(config: CellConfig, outputs: CellOutputs) -> dict[str, object]:
             "dataset": asdict(spec),
             "config": asdict(config),
             "rows": len(score_bundle),
-            "score_columns": list(score_bundle.columns),
+            "score_columns": list(archived_scores.columns),
             "artifacts": {
                 name: {
                     "uri": output_uris[name],
@@ -454,6 +467,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--zero-shot-metrics-output", required=True)
     parser.add_argument("--provenance-output", required=True)
     parser.add_argument("--run-probe", action="store_true")
+    parser.add_argument("--retain-embeddings", action="store_true")
     parser.add_argument("--probe-predictions-output")
     parser.add_argument("--probe-metrics-output")
     parser.add_argument("--probe-classifiers-output")
@@ -480,6 +494,7 @@ def main() -> None:
         probe_fixed_c=args.probe_fixed_c,
         n_bootstrap=args.n_bootstrap,
         run_probe=args.run_probe,
+        retain_embeddings=args.retain_embeddings,
     )
     outputs = CellOutputs(
         scores=args.scores_output,
