@@ -126,6 +126,96 @@ expected_shards = 64
 filter_field = "alignment_source"
 filter_drop = ["human_reference"]
 
+[streams.phylop_cds]
+repo_id = "marin-dna/phylop-uniform-v1-cds"
+revision = "452a5a3538f22630c3dea94d441ac30216bb28ea"
+sequence_field = "sequence"
+expected_rows = 69483774
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_tss_utr5]
+repo_id = "marin-dna/phylop-uniform-v1-tss-utr5"
+revision = "5134205d86cd03e7833843d99e947e43e7aa11ac"
+sequence_field = "sequence"
+expected_rows = 11580082
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_utr3]
+repo_id = "marin-dna/phylop-uniform-v1-utr3"
+revision = "2b73d5d9ebda34a361536db5e3d2697b6a1b1d6c"
+sequence_field = "sequence"
+expected_rows = 14496656
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_ncrna]
+repo_id = "marin-dna/phylop-uniform-v1-ncrna-exon"
+revision = "54667e7bb49505f463afc147676e880a30c11d89"
+sequence_field = "sequence"
+expected_rows = 20790530
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_ccre]
+repo_id = "marin-dna/phylop-uniform-v1-enhancer-arm-a"
+revision = "6f879b3747330e2c92e1402ead55cda6621f50ff"
+sequence_field = "sequence"
+expected_rows = 79725424
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_cds]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-cds"
+revision = "4c722c74e4616d8cbf8bce55844ec26da7fc516f"
+sequence_field = "sequence"
+expected_rows = 71002636
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_tss_utr5]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-tss-utr5"
+revision = "c2fdcf05d24856f004be303470183e5fc39188b9"
+sequence_field = "sequence"
+expected_rows = 14650866
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_utr3]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-utr3"
+revision = "42ac7aed4565d0ec2800c9d8e2b1829daec274bd"
+sequence_field = "sequence"
+expected_rows = 20538748
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_ncrna]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-ncrna-exon"
+revision = "c5cea96abe3ae84dafdb52967b1168a269e01f43"
+sequence_field = "sequence"
+expected_rows = 20026822
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_ccre]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-enhancer-arm-a"
+revision = "243210a0d93d93423b42e817d82d0abc3de37ef8"
+sequence_field = "sequence"
+expected_rows = 131467840
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
 [evals.mendelian]
 repo_id = "bolinas-dna/evals_mendelian_traits"
 revision = "4aed58e50c5dea0b878a665007af2ef9e5108e9f"

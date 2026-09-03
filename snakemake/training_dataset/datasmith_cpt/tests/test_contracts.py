@@ -20,7 +20,14 @@ def test_checked_in_asset_manifest_pins_released_vertebrate_and_filtered_streams
         "vert_ccre",
     )
     nohuman = tuple(f"{name}_nohuman" for name in vertebrate)
-    assert tuple(specs) == released + vertebrate + nohuman
+    filtered_families = tuple(
+        f"{prefix}_{region}"
+        for prefix in ("phylop", "gpnstar")
+        for region in ("cds", "tss_utr5", "utr3", "ncrna", "ccre")
+    )
+    assert tuple(specs) == released + vertebrate + nohuman + filtered_families
+    for name in filtered_families:
+        assert specs[name].filter_drop == ("human_reference",)
     for name in nohuman:
         spec = specs[name]
         assert spec.filter_field == "alignment_source"
