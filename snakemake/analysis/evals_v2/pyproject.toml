@@ -11,6 +11,7 @@ dependencies = [
     "marin-dna",
     "datasets>=3.1.0,<4.0.0",
     "einops",
+    "fsspec",
     "huggingface-hub",
     "jaxtyping",
     "joblib",
@@ -33,6 +34,8 @@ dependencies = [
 
 [project.scripts]
 evals-gpu-runtime-check = "marin_dna_evals.gpu_runtime_validation:main"
+marin-dna-eval-cell = "marin_dna_evals.cell:main"
+marin-dna-paired-delta = "marin_dna_evals.paired_delta:main"
 
 [dependency-groups]
 dev = [

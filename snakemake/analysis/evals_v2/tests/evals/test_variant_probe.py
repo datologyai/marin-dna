@@ -11,11 +11,13 @@ import numpy as np
 import pandas as pd
 import pytest
 from marin_dna_evals.variant_probe import (
+    DEFAULT_FIXED_PROBE_C,
     SYMMETRIC_COMBOS,
     fit_full_classifier,
     pair_feature,
     pair_feature_from_bundle,
     run_subset_probes,
+    run_subset_probes_fixed_c,
     summarize_selected_c,
     traitgym_nested_oof,
 )
@@ -170,6 +172,91 @@ def test_nested_oof_requires_three_groups() -> None:
     feats, label, _ = _toy_dataset()
     with pytest.raises(AssertionError):
         traitgym_nested_oof(feats, label, np.zeros(len(label)), n_jobs=1)
+
+
+# --------------------------------------------------------------------------
+# Fast fixed-C chromosome-grouped OOF
+# --------------------------------------------------------------------------
+
+
+def test_fixed_c_probe_parallelizes_folds_and_records_assumption() -> None:
+    df = _toy_bundle({"a": 400, "b": 400})
+    predictions, classifiers = run_subset_probes_fixed_c(
+        df,
+        feature_combo="concat_ref_delta",
+        min_variants=300,
+        min_chroms=3,
+        n_jobs=2,
+    )
+
+    assert DEFAULT_FIXED_PROBE_C == pytest.approx(1e-3)
+    assert not predictions["probe_score"].isna().any()
+    assert (
+        average_precision_score(predictions["label"], predictions["probe_score"]) > 0.75
+    )
+    assert set(classifiers) == {"a", "b"}
+    for classifier in classifiers.values():
+        assert classifier["C"] == pytest.approx(1e-3)
+        assert classifier["protocol"] == "fixed_c_logo"
+        assert classifier["n_outer_folds"] == 4
+        assert classifier["max_n_iter"] < 2000
+
+
+def test_fixed_c_probe_is_reproducible() -> None:
+    df = _toy_bundle({"a": 320})
+    first, _ = run_subset_probes_fixed_c(
+        df,
+        feature_combo="concat_ref_delta",
+        min_variants=300,
+        n_jobs=2,
+    )
+    second, _ = run_subset_probes_fixed_c(
+        df,
+        feature_combo="concat_ref_delta",
+        min_variants=300,
+        n_jobs=2,
+    )
+
+    np.testing.assert_array_equal(first["probe_score"], second["probe_score"])
+
+
+def test_fixed_c_probe_does_not_train_on_held_out_chromosome() -> None:
+    rng = _rng(11)
+    n_groups, per_group = 8, 40
+    groups = np.repeat(np.arange(n_groups), per_group)
+    label = rng.integers(0, 2, size=n_groups * per_group)
+    ref = np.zeros((len(label), n_groups), dtype=np.float32)
+    alt = np.eye(n_groups, dtype=np.float32)[groups]
+    df = _emb_frame(
+        ref,
+        alt,
+        chrom=np.array([f"chr{group}" for group in groups]),
+        label=label,
+        subset="all",
+    )
+
+    predictions, _ = run_subset_probes_fixed_c(
+        df,
+        feature_combo="delta",
+        min_variants=40,
+        min_chroms=3,
+        n_jobs=1,
+    )
+
+    ap = average_precision_score(label, predictions["probe_score"])
+    assert abs(ap - label.mean()) < 0.12, f"chromosome identity leaked: AP={ap:.3f}"
+
+
+def test_fixed_c_probe_rejects_non_positive_c() -> None:
+    df = _toy_bundle({"a": 80})
+    with pytest.raises(ValueError, match="fixed_c"):
+        run_subset_probes_fixed_c(
+            df,
+            feature_combo="concat_ref_delta",
+            fixed_c=0,
+            min_variants=40,
+            n_jobs=1,
+        )
 
 
 # --------------------------------------------------------------------------

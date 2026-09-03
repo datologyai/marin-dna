@@ -1,0 +1,238 @@
+[model]
+repo_id = "marin-dna/marin-dna-exp135-m5.1"
+revision = "a73a5dcfb3d64b8941e7e7596c6e88ef77db3e7a"
+model_s3_uri = "s3://datology-external-artifacts/downloaded-models/marin-dna/marin-dna-exp135-m5.1-a73a5dcfb3d6"
+tokenizer_s3_uri = "s3://datology-external-artifacts/downloaded-models/tokenizers/marin-dna/marin-dna-exp135-m5.1-a73a5dcfb3d6"
+
+[model.files]
+"config.json" = "1e5efceab894c1b165c9c247002b8288987855c38f7841aa0a6abe6f8cd6b75c"
+"model.safetensors" = "da8fcb8dc0c2eef3206c9636c608bea39c227f87ff7c690aeb749a1bba63d02e"
+"special_tokens_map.json" = "456aaeeb037d00e8502a96c0dacdc53f214f5d10c06663d8c39d082a3dfdb689"
+"tokenizer.json" = "4a10866bcbfdbd5637ebd9aed25a686186eef8717a31ec16cdc3291b8f8ae795"
+"tokenizer_config.json" = "4e814edcdb1cb8f408a2cdf951e9be4093bbcd3d12e58883f56aa06eb39fc8c7"
+
+[streams.cds]
+repo_id = "bolinas-dna/genomes-v5-genome_set-animals-intervals-v5_255_128"
+revision = "ffe3e78c99868077c65ad6568e1445d80e480794"
+sequence_field = "seq"
+expected_rows = 242334716
+expected_shards = 64
+
+[streams.upstream]
+repo_id = "bolinas-dna/genomes-v5-genome_set-animals-intervals-v1_255_128"
+revision = "d93209847b02a0c9be5c03591a0a5e56ee09c35d"
+sequence_field = "seq"
+expected_rows = 68286166
+expected_shards = 64
+
+[streams.downstream]
+repo_id = "bolinas-dna/genomes-v5-genome_set-animals-intervals-v15_255_128"
+revision = "b009afaab756937d75b8da3b1271ad8f0cec0b4d"
+sequence_field = "seq"
+expected_rows = 20501856
+expected_shards = 64
+
+[streams.enhancer]
+repo_id = "bolinas-dna/zoonomia-v1-v3_ccre_non_promoter"
+revision = "862485aa18eed53a53e693ba4c2eb45e0afc5087"
+sequence_field = "sequence"
+expected_rows = 96639800
+expected_shards = 64
+
+[streams.ncrna]
+repo_id = "bolinas-dna/zoonomia-v1-v3_ncrna_exon"
+revision = "3e48d9ae7c604b99ccfc8bd07e391b960c1ea21a"
+sequence_field = "sequence"
+expected_rows = 15277064
+expected_shards = 64
+
+[streams.vert_cds]
+repo_id = "marin-dna/vertebrate-v1-cds"
+revision = "bfab878078c4ee6c0f47b760f1e5e0577549dc9d"
+sequence_field = "sequence"
+expected_rows = 66552602
+expected_shards = 64
+
+[streams.vert_tss_utr5]
+repo_id = "marin-dna/vertebrate-v1-tss_region_and_utr5"
+revision = "89c5debdcb8801d9d254a75b1c117433c62e81e3"
+sequence_field = "sequence"
+expected_rows = 11951292
+expected_shards = 64
+
+[streams.vert_utr3]
+repo_id = "marin-dna/vertebrate-v1-utr3"
+revision = "709c8d38a465edb717486222a786484a9a0548b2"
+sequence_field = "sequence"
+expected_rows = 13799672
+expected_shards = 64
+
+[streams.vert_ncrna]
+repo_id = "marin-dna/vertebrate-v1-ncrna_exon"
+revision = "2ed0fb80b5d6d923614f55d1d6664d6ece41edd4"
+sequence_field = "sequence"
+expected_rows = 17878136
+expected_shards = 64
+
+[streams.vert_ccre]
+repo_id = "marin-dna/vertebrate-v1-ccre_non_promoter"
+revision = "4f48052889d7acc040ab21e7e16a6403ca457503"
+sequence_field = "sequence"
+expected_rows = 91033862
+expected_shards = 64
+
+[streams.vert_cds_nohuman]
+repo_id = "marin-dna/vertebrate-v1-cds"
+revision = "bfab878078c4ee6c0f47b760f1e5e0577549dc9d"
+sequence_field = "sequence"
+expected_rows = 66552602
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_tss_utr5_nohuman]
+repo_id = "marin-dna/vertebrate-v1-tss_region_and_utr5"
+revision = "89c5debdcb8801d9d254a75b1c117433c62e81e3"
+sequence_field = "sequence"
+expected_rows = 11951292
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_utr3_nohuman]
+repo_id = "marin-dna/vertebrate-v1-utr3"
+revision = "709c8d38a465edb717486222a786484a9a0548b2"
+sequence_field = "sequence"
+expected_rows = 13799672
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_ncrna_nohuman]
+repo_id = "marin-dna/vertebrate-v1-ncrna_exon"
+revision = "2ed0fb80b5d6d923614f55d1d6664d6ece41edd4"
+sequence_field = "sequence"
+expected_rows = 17878136
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_ccre_nohuman]
+repo_id = "marin-dna/vertebrate-v1-ccre_non_promoter"
+revision = "4f48052889d7acc040ab21e7e16a6403ca457503"
+sequence_field = "sequence"
+expected_rows = 91033862
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_cds]
+repo_id = "marin-dna/phylop-uniform-v1-cds"
+revision = "452a5a3538f22630c3dea94d441ac30216bb28ea"
+sequence_field = "sequence"
+expected_rows = 69483774
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_tss_utr5]
+repo_id = "marin-dna/phylop-uniform-v1-tss-utr5"
+revision = "5134205d86cd03e7833843d99e947e43e7aa11ac"
+sequence_field = "sequence"
+expected_rows = 11580082
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_utr3]
+repo_id = "marin-dna/phylop-uniform-v1-utr3"
+revision = "2b73d5d9ebda34a361536db5e3d2697b6a1b1d6c"
+sequence_field = "sequence"
+expected_rows = 14496656
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_ncrna]
+repo_id = "marin-dna/phylop-uniform-v1-ncrna-exon"
+revision = "54667e7bb49505f463afc147676e880a30c11d89"
+sequence_field = "sequence"
+expected_rows = 20790530
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.phylop_ccre]
+repo_id = "marin-dna/phylop-uniform-v1-enhancer-arm-a"
+revision = "6f879b3747330e2c92e1402ead55cda6621f50ff"
+sequence_field = "sequence"
+expected_rows = 79725424
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_cds]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-cds"
+revision = "4c722c74e4616d8cbf8bce55844ec26da7fc516f"
+sequence_field = "sequence"
+expected_rows = 71002636
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_tss_utr5]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-tss-utr5"
+revision = "c2fdcf05d24856f004be303470183e5fc39188b9"
+sequence_field = "sequence"
+expected_rows = 14650866
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_utr3]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-utr3"
+revision = "42ac7aed4565d0ec2800c9d8e2b1829daec274bd"
+sequence_field = "sequence"
+expected_rows = 20538748
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_ncrna]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-ncrna-exon"
+revision = "c5cea96abe3ae84dafdb52967b1168a269e01f43"
+sequence_field = "sequence"
+expected_rows = 20026822
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.gpnstar_ccre]
+repo_id = "marin-dna/gpn-star-p-uniform-v1-enhancer-arm-a"
+revision = "243210a0d93d93423b42e817d82d0abc3de37ef8"
+sequence_field = "sequence"
+expected_rows = 131467840
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[evals.mendelian]
+repo_id = "bolinas-dna/evals_mendelian_traits"
+revision = "4aed58e50c5dea0b878a665007af2ef9e5108e9f"
+split = "train"
+
+[evals.sge]
+repo_id = "bolinas-dna/evals_sge"
+revision = "225d3d1ea32a4af547891b13c33b5e92a5aae849"
+split = "train"
+
+[genome]
+release = 115
+assembly = "GRCh38"
+source_url = "https://ftp.ensembl.org/pub/release-115/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz"
+ensembl_checksum = "19039 920395"
+source_sha256 = "651561b3065aa6083b62290ec96344a90d07388883874070aa368b745fde68fd"
+mirror_uri = "s3://datology-external-artifacts/genomes/homo_sapiens/GRCh38/ensembl-release-115/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz"
+mirror_sha256 = "958a761030f94168cb85f46397dfa15435f82ae31624e39521c0a978f7b76ab7"
+fai_sha256 = "04f94041d71ce5d27e71b73ef972f07c600fd27c147504dd9a2a2ca1944095f0"
+gzi_sha256 = "283c35a3e503b067c7b64d5e73caf56116e545db27d517d8ae221e89ea7781f4"

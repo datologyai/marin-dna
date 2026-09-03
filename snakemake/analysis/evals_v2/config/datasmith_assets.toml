@@ -1,0 +1,29 @@
+[model]
+repo_id = "marin-dna/marin-dna-exp135-m5.1"
+revision = "a73a5dcfb3d64b8941e7e7596c6e88ef77db3e7a"
+mirror_uri = "s3://datology-external-artifacts/downloaded-models/marin-dna/marin-dna-exp135-m5.1-a73a5dcfb3d6"
+manifest_uri = "s3://datology-external-artifacts/downloaded-models/marin-dna/marin-dna-exp135-m5.1-a73a5dcfb3d6/_source_assets.toml"
+
+[genome]
+release = 115
+assembly = "GRCh38"
+mirror_uri = "s3://datology-external-artifacts/genomes/homo_sapiens/GRCh38/ensembl-release-115/Homo_sapiens.GRCh38.dna_sm.primary_assembly.fa.gz"
+manifest_uri = "s3://datology-external-artifacts/genomes/homo_sapiens/GRCh38/ensembl-release-115/_source_assets.toml"
+
+[evals.mendelian_traits]
+repo_id = "bolinas-dna/evals_mendelian_traits"
+revision = "4aed58e50c5dea0b878a665007af2ef9e5108e9f"
+split = "train"
+mirror_uri = "s3://datology-external-artifacts/datasets/marin-dna/evals/mendelian_traits/4aed58e50c5dea0b878a665007af2ef9e5108e9f/train.parquet"
+sha256 = "919abf532debd9f5e339b94cd4eef9868cbfa92dbe4fc57a0b1398da481f469f"
+bytes = 1071404
+rows = 16140
+
+[evals.sge]
+repo_id = "bolinas-dna/evals_sge"
+revision = "225d3d1ea32a4af547891b13c33b5e92a5aae849"
+split = "train"
+mirror_uri = "s3://datology-external-artifacts/datasets/marin-dna/evals/sge/225d3d1ea32a4af547891b13c33b5e92a5aae849/train.parquet"
+sha256 = "781a22c4d8a1eddc93ff95d1d45f8b5aa56adf38e9e96ff4cc944968de5d0450"
+bytes = 2774407
+rows = 23853
