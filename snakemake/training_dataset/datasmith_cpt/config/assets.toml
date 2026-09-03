@@ -81,6 +81,51 @@ sequence_field = "sequence"
 expected_rows = 91033862
 expected_shards = 64
 
+[streams.vert_cds_nohuman]
+repo_id = "marin-dna/vertebrate-v1-cds"
+revision = "bfab878078c4ee6c0f47b760f1e5e0577549dc9d"
+sequence_field = "sequence"
+expected_rows = 66552602
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_tss_utr5_nohuman]
+repo_id = "marin-dna/vertebrate-v1-tss_region_and_utr5"
+revision = "89c5debdcb8801d9d254a75b1c117433c62e81e3"
+sequence_field = "sequence"
+expected_rows = 11951292
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_utr3_nohuman]
+repo_id = "marin-dna/vertebrate-v1-utr3"
+revision = "709c8d38a465edb717486222a786484a9a0548b2"
+sequence_field = "sequence"
+expected_rows = 13799672
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_ncrna_nohuman]
+repo_id = "marin-dna/vertebrate-v1-ncrna_exon"
+revision = "2ed0fb80b5d6d923614f55d1d6664d6ece41edd4"
+sequence_field = "sequence"
+expected_rows = 17878136
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
+[streams.vert_ccre_nohuman]
+repo_id = "marin-dna/vertebrate-v1-ccre_non_promoter"
+revision = "4f48052889d7acc040ab21e7e16a6403ca457503"
+sequence_field = "sequence"
+expected_rows = 91033862
+expected_shards = 64
+filter_field = "alignment_source"
+filter_drop = ["human_reference"]
+
 [evals.mendelian]
 repo_id = "bolinas-dna/evals_mendelian_traits"
 revision = "4aed58e50c5dea0b878a665007af2ef9e5108e9f"

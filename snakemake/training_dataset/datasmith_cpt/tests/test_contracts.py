@@ -7,23 +7,28 @@ from marin_dna_datasmith_cpt.contracts import (
 )
 
 
-def test_checked_in_asset_manifest_pins_ten_streams() -> None:
+def test_checked_in_asset_manifest_pins_released_vertebrate_and_filtered_streams() -> None:
     assert DEFAULT_ASSETS.is_file()
     specs = load_stream_specs(DEFAULT_ASSETS)
 
-    assert tuple(specs) == (
-        "cds",
-        "upstream",
-        "downstream",
-        "enhancer",
-        "ncrna",
+    released = ("cds", "upstream", "downstream", "enhancer", "ncrna")
+    vertebrate = (
         "vert_cds",
         "vert_tss_utr5",
         "vert_utr3",
         "vert_ncrna",
         "vert_ccre",
     )
-    assert sum(spec.expected_rows for spec in specs.values()) == 644_255_166
+    nohuman = tuple(f"{name}_nohuman" for name in vertebrate)
+    assert tuple(specs) == released + vertebrate + nohuman
+    for name in nohuman:
+        spec = specs[name]
+        assert spec.filter_field == "alignment_source"
+        assert spec.filter_drop == ("human_reference",)
+        assert spec.expected_rows == specs[name.removesuffix("_nohuman")].expected_rows
+    assert sum(
+        spec.expected_rows for spec in specs.values() if not spec.is_filtered
+    ) == 644_255_166
     assert all(spec.expected_shards == 64 for spec in specs.values())
 
 

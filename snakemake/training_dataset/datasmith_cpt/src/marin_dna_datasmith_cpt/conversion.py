@@ -57,6 +57,7 @@ class ShardReport:
     uppercase_bases: int
     lowercase_bases: int
     unknown_bases: int
+    filtered_rows: int = 0
 
 
 def discover_shards(spec: StreamSpec) -> list[Shard]:
@@ -165,12 +166,14 @@ def _download_verified_shard(shard: Shard, destination: Path) -> tuple[str, int]
 def convert_shard(
     shard: Shard,
     *,
-    stream: str,
-    sequence_field: str,
+    spec: StreamSpec,
     report_root: str,
 ) -> Iterator[dict[str, dict[str, str]]]:
     """Validate one compressed shard and yield LitData text records."""
+    stream = spec.name
+    sequence_field = spec.sequence_field
     rows = 0
+    filtered_rows = 0
     uppercase_bases = 0
     lowercase_bases = 0
     unknown_bases = 0
@@ -195,6 +198,9 @@ def convert_shard(
                     raise TypeError(
                         f"{stream}/{shard.path}:{line_number}: row must be an object"
                     )
+                if not spec.keeps_row(row):
+                    filtered_rows += 1
+                    continue
                 sequence = validate_sequence(
                     row.get(sequence_field),
                     source=f"{stream}/{shard.path}:{line_number}",
@@ -212,6 +218,7 @@ def convert_shard(
         source_bytes=source_bytes,
         rows=rows,
         bases=rows * 255,
+        filtered_rows=filtered_rows,
         uppercase_bases=uppercase_bases,
         lowercase_bases=lowercase_bases,
         unknown_bases=unknown_bases,
@@ -233,12 +240,7 @@ def convert_stream(
 
     shards = discover_shards(spec)
     optimize(
-        partial(
-            convert_shard,
-            stream=spec.name,
-            sequence_field=spec.sequence_field,
-            report_root=report_uri,
-        ),
+        partial(convert_shard, spec=spec, report_root=report_uri),
         shards,
         output_dir=output_uri,
         chunk_bytes=chunk_bytes,
@@ -268,12 +270,19 @@ def finalize_reports(spec: StreamSpec, *, report_uri: str) -> dict[str, object]:
             reports.append(orjson.loads(handle.read()))
 
     rows = sum(int(report["rows"]) for report in reports)
-    if rows != spec.expected_rows:
-        raise ValueError(f"{spec.name}: expected {spec.expected_rows} rows, got {rows}")
+    filtered_rows = sum(int(report.get("filtered_rows", 0)) for report in reports)
+    # A filtered stream keeps a subset, so the pinned count is the pre-filter
+    # total; kept plus filtered must still account for every source row.
+    if rows + filtered_rows != spec.expected_rows:
+        raise ValueError(
+            f"{spec.name}: expected {spec.expected_rows} source rows, got "
+            f"{rows} kept plus {filtered_rows} filtered"
+        )
     manifest: dict[str, object] = {
         "format_version": 2,
         "stream": asdict(spec),
         "rows": rows,
+        "filtered_rows": filtered_rows,
         "bases": sum(int(report["bases"]) for report in reports),
         "uppercase_bases": sum(int(report["uppercase_bases"]) for report in reports),
         "lowercase_bases": sum(int(report["lowercase_bases"]) for report in reports),

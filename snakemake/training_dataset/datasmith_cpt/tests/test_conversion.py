@@ -29,7 +29,7 @@ def _write_shard(path: Path, rows: list[dict[str, object]]) -> Shard:
     )
 
 
-def _spec(*, rows: int = 2) -> StreamSpec:
+def _spec(*, rows: int = 2, **overrides: object) -> StreamSpec:
     return StreamSpec(
         name="fixture",
         repo_id="example/dataset",
@@ -37,6 +37,7 @@ def _spec(*, rows: int = 2) -> StreamSpec:
         sequence_field="seq",
         expected_rows=rows,
         expected_shards=1,
+        **overrides,
     )
 
 
@@ -54,8 +55,7 @@ def test_conversion_preserves_case_and_writes_a_verified_report(tmp_path: Path) 
     records = list(
         convert_shard(
             shard,
-            stream="fixture",
-            sequence_field="seq",
+            spec=_spec(),
             report_root=str(report_root),
         )
     )
@@ -89,8 +89,7 @@ def test_conversion_rejects_invalid_rows_without_a_report(tmp_path: Path) -> Non
         list(
             convert_shard(
                 shard,
-                stream="fixture",
-                sequence_field="seq",
+                spec=_spec(),
                 report_root=str(report_root),
             )
         )
@@ -109,8 +108,7 @@ def test_conversion_rejects_compressed_hash_mismatch(tmp_path: Path) -> None:
         list(
             convert_shard(
                 wrong,
-                stream="fixture",
-                sequence_field="seq",
+                spec=_spec(),
                 report_root=str(tmp_path / "reports"),
             )
         )
@@ -140,8 +138,7 @@ def test_conversion_retries_before_yielding_partial_records(
     records = list(
         convert_shard(
             shard,
-            stream="fixture",
-            sequence_field="seq",
+            spec=_spec(),
             report_root=str(tmp_path / "reports"),
         )
     )
@@ -177,3 +174,38 @@ def test_litdata_output_matches_universe_text_contract(
 
     dataset = StreamingDataset(str(output_root), shuffle=False)
     assert [row["text"]["content"] for row in dataset] == sequences
+
+
+def test_row_filter_keeps_a_subset_and_accounts_for_every_source_row(
+    tmp_path: Path,
+) -> None:
+    spec = _spec(
+        rows=3,
+        filter_field="alignment_source",
+        filter_drop=("human_reference",),
+    )
+    shard = _write_shard(
+        tmp_path / "shard_0000.jsonl.zst",
+        [
+            {"seq": "A" * 255, "alignment_source": "zoonomia_cactus"},
+            {"seq": "C" * 255, "alignment_source": "human_reference"},
+            {"seq": "G" * 255, "alignment_source": "ucsc_multiz100way"},
+        ],
+    )
+    report_root = tmp_path / "reports"
+
+    records = list(convert_shard(shard, spec=spec, report_root=str(report_root)))
+
+    assert [record["text"]["content"] for record in records] == ["A" * 255, "G" * 255]
+    manifest = finalize_reports(spec, report_uri=str(report_root))
+    assert manifest["rows"] == 2
+    assert manifest["filtered_rows"] == 1
+
+
+def test_row_filter_rejects_a_non_string_filter_field(tmp_path: Path) -> None:
+    spec = _spec(rows=1, filter_field="alignment_source", filter_keep=("x",))
+    shard = _write_shard(
+        tmp_path / "shard_0000.jsonl.zst", [{"seq": "A" * 255, "alignment_source": 7}]
+    )
+    with pytest.raises(TypeError, match="must be a string"):
+        list(convert_shard(shard, spec=spec, report_root=str(tmp_path / "r")))

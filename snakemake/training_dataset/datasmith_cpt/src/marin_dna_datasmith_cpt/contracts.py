@@ -23,6 +23,12 @@ class StreamSpec:
     sequence_field: str
     expected_rows: int
     expected_shards: int
+    # Optional row filter: keep a row only when row[field] is in the listed
+    # values. Filtered streams cannot assert an exact row count up front, so
+    # expected_rows is treated as the pre-filter total.
+    filter_field: str | None = None
+    filter_keep: tuple[str, ...] = ()
+    filter_drop: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -42,6 +48,32 @@ class StreamSpec:
             raise ValueError(
                 f"stream {self.name!r} row and shard counts must be positive"
             )
+        if bool(self.filter_keep) and bool(self.filter_drop):
+            raise ValueError(
+                f"stream {self.name!r} must not set both filter_keep and filter_drop"
+            )
+        if bool(self.filter_field) != bool(self.filter_keep or self.filter_drop):
+            raise ValueError(
+                f"stream {self.name!r} needs filter_field with filter_keep/filter_drop"
+            )
+
+    @property
+    def is_filtered(self) -> bool:
+        return self.filter_field is not None
+
+    def keeps_row(self, row: dict) -> bool:
+        """Apply the optional row filter; unfiltered streams keep everything."""
+        if self.filter_field is None:
+            return True
+        value = row.get(self.filter_field)
+        if not isinstance(value, str):
+            raise TypeError(
+                f"stream {self.name!r}: filter field {self.filter_field!r} "
+                f"must be a string, got {type(value).__name__}"
+            )
+        if self.filter_keep:
+            return value in self.filter_keep
+        return value not in self.filter_drop
 
 
 def load_stream_specs(path: str | Path) -> dict[str, StreamSpec]:
@@ -53,7 +85,14 @@ def load_stream_specs(path: str | Path) -> dict[str, StreamSpec]:
         raise ValueError("assets manifest must contain a non-empty [streams] table")
 
     specs = {
-        name: StreamSpec(name=name, **values) for name, values in raw_streams.items()
+        name: StreamSpec(
+            name=name,
+            **{
+                key: tuple(value) if key.startswith("filter_") and isinstance(value, list) else value
+                for key, value in values.items()
+            },
+        )
+        for name, values in raw_streams.items()
     }
     if len(specs) != len(raw_streams):
         raise ValueError("assets manifest contains duplicate stream names")
